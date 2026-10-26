@@ -2,7 +2,7 @@
 
 OSS-KBDB é uma plataforma open-source para construir e servir bases de conhecimento RAG multi-tenant. Ela recebe documentos de object storage compatível com S3, preserva o histórico em um pipeline medallion e oferece recuperação lexical, semântica ou híbrida com contexto hierárquico.
 
-> Estado da versão: **0.1.0**. O projeto entrega pipeline, control plane, interface administrativa, autenticação por tenant, API de serving e implantação Docker. Consulte as limitações antes de operar em produção crítica.
+> Estado da versão: **0.1.1**. O projeto entrega pipeline, control plane, interface administrativa, autenticação por tenant, API de serving e implantação Docker. Consulte as limitações antes de operar em produção crítica.
 
 ## Capacidades
 
@@ -16,6 +16,11 @@ OSS-KBDB é uma plataforma open-source para construir e servir bases de conhecim
 - Control plane com platform-admin, tenant-admin, API keys por KB, métricas de uso, jobs e credenciais cifradas.
 - Cada KB ocupa schema próprio (kb_tenant_kb) mesmo quando compartilha uma instância PostgreSQL.
 - Onboarding de tenant por e-mail: criação, ativação e definição de senha.
+
+O perfil padrão de uma KB exige apenas a origem S3. Ele reutiliza o PostgreSQL
+da plataforma, embedding local multilíngue de 384 dimensões e enrichment
+determinístico. Banco, embedding e enrichment podem ser trocados
+individualmente para o modo custom.
 
 ## Arquitetura
 
@@ -132,7 +137,7 @@ A troca de dimensão de embedding requer re-embedding e recriação do índice. 
 - Use TLS no PostgreSQL e no endpoint de modelos em produção.
 - Restrinja o usuário de data plane ao schema da KB; não use public nem superusuário compartilhado entre tenants.
 
-## Limitações da v0.1.0
+## Limitações da v0.1.1
 
 - Extratores implementados: PDF textual, Markdown, HTML e texto. OCR e tabelas estruturadas ainda não fazem parte do pipeline.
 - O worker usa polling do banco; não há broker/fila distribuída nem dashboard de retentativas nesta versão.

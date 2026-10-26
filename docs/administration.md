@@ -29,7 +29,12 @@ Ao confirmar, a plataforma cria o tenant, registra seu usuário com papel tenant
 
 ## Criar uma KB
 
-Em **Nova base**, selecione o tenant e informe:
+Em **Nova base**, selecione o tenant. Por padrão, informe apenas o object storage;
+PostgreSQL, embedding e enrichment usam os defaults operados pela plataforma. O
+tenant-admin não recebe nem precisa conhecer essas configurações.
+
+Em **Configurações avançadas**, cada um dos três componentes pode ser alterado
+individualmente para **Customizado**. Quando fizer isso, informe:
 
 1. Nome e slug da KB.
 2. URL, usuário e senha do PostgreSQL do data plane. Uma URL já autenticada também é aceita; credenciais separadas complementam uma URL sem usuário.

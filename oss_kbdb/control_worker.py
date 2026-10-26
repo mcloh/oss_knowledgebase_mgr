@@ -9,6 +9,7 @@ from oss_kbdb.adapters.s3 import S3ObjectStore
 from oss_kbdb.services.enrichment import DeterministicEnricher,OpenAICompatibleEnricher
 from oss_kbdb.services.ingestion import IngestionService
 from oss_kbdb.config import Settings
+from oss_kbdb.kb_defaults import database_url
 def _decrypt(v):return json.loads(Fernet(os.environ['CONTROL_PLANE_FERNET_KEY'].encode()).decrypt(v).decode())
 def _hook(url,secret,event):
  body=json.dumps(event,separators=(',',':')).encode();headers={'Content-Type':'application/json'}
@@ -26,7 +27,7 @@ def run_once():
   dbcfg,s3cfg,embcfg,llmcfg=_decrypt(kb[0]),_decrypt(kb[1]),_decrypt(kb[2]),_decrypt(kb[3])
   chunks,hook=kb[4],kb[5]
   hooksecret=Fernet(os.environ['CONTROL_PLANE_FERNET_KEY'].encode()).decrypt(kb[6]).decode() if kb[6] else None
-  data_db=PostgresRepository(dbcfg['url'],schema_name=dbcfg['schema_name'])
+  data_db=PostgresRepository(database_url(dbcfg),schema_name=dbcfg['schema_name'])
   try:
    store=S3ObjectStore(endpoint_url=s3cfg.get('url'),region=s3cfg.get('region','us-east-1'),access_key_id=s3cfg.get('credentials',{}).get('access_key_id'),secret_access_key=s3cfg.get('credentials',{}).get('secret_access_key'))
    emb=LocalEmbedder(embcfg['model'],embcfg.get('dimensions',384)) if embcfg.get('provider','local')=='local' else OpenAICompatibleEmbedder(embcfg['url'],embcfg.get('credentials',{}).get('api_key'),embcfg['model'],embcfg['dimensions']);emb.model=embcfg['model']

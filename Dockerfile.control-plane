@@ -3,6 +3,8 @@ WORKDIR /app
 COPY pyproject.toml README.md ./
 COPY oss_kbdb ./oss_kbdb
 COPY sql ./sql
-RUN pip install --no-cache-dir .
+# A VM não possui GPU: fixe o wheel CPU antes do extra local para não baixar CUDA.
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.6.0+cpu \
+ && pip install --no-cache-dir '.[local]'
 EXPOSE 8000
 CMD ["uvicorn","oss_kbdb.admin_api:app","--host","0.0.0.0","--port","8000"]

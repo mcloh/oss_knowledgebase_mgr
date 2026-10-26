@@ -52,7 +52,15 @@ async function hydrate() {
   }
 }
 function openTenant() { document.querySelector("#tenant-error").textContent=""; document.querySelector("#tenant-modal").showModal(); }
-function openKb() { document.querySelector("#kb-error").textContent=""; document.querySelector("#kb-modal").showModal(); }
+function syncKbModes() {
+  document.querySelectorAll("#kb-form .mode").forEach(select => {
+    const section = document.querySelector('[data-config="' + select.name.replace("_mode","") + '"]');
+    const custom = select.value === "custom";
+    section.hidden = !custom;
+    section.querySelectorAll("input").forEach(input => input.required = custom && ["db_url","embedding","llm"].includes(input.name));
+  });
+}
+function openKb() { document.querySelector("#kb-error").textContent=""; syncKbModes(); document.querySelector("#kb-modal").showModal(); }
 async function resend(id) {
   if (!confirm("Reenviar o e-mail de ativação? O link anterior deixará de valer.")) return;
   try { await api("/tenants/"+id+"/activation/resend",{method:"POST"}); alert("E-mail de ativação reenviado."); } catch (error) { alert(error.message); }
@@ -73,6 +81,7 @@ document.querySelector("#tenant-filter").onchange=render;
 document.querySelector("#new-tenant").onclick=openTenant;
 document.querySelector("#new-kb").onclick=openKb;
 document.querySelectorAll("[data-close]").forEach(button=>button.onclick=()=>document.querySelector("#"+button.dataset.close).close());
+document.querySelectorAll("#kb-form .mode").forEach(select=>select.onchange=syncKbModes);
 document.querySelector("#login-form").onsubmit=async event=>{
   event.preventDefault();
   try { const response=await fetch(API+"/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:email.value,password:password.value})});if(!response.ok)throw new Error();state.token=(await response.json()).access_token;sessionStorage.setItem("osskbdb_token",state.token);document.querySelector("#login").close();hydrate(); }
@@ -90,7 +99,11 @@ document.querySelector("#tenant-form").onsubmit=async event=>{
 };
 document.querySelector("#kb-form").onsubmit=async event=>{
   event.preventDefault();const form=new FormData(event.target);const split=value=>{const parts=String(value).split("|").map(v=>v.trim());return {url:parts[0],model:parts[1],credentials:{},provider:"openai_compatible",dimensions:384};};
-  try { await api("/knowledge-bases",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tenant_id:form.get("tenant_id"),slug:form.get("slug"),name:form.get("name"),chunk_config:{max_tokens:450,overlap_tokens:60,min_tokens:30},database:{url:form.get("db_url"),credentials:{username:form.get("db_user"),password:form.get("db_password")},vector_dimensions:384},s3:{url:form.get("s3_url"),credentials:{access_key_id:form.get("s3_key"),secret_access_key:form.get("s3_secret")}},embedding:split(form.get("embedding")),enrichment:split(form.get("llm")),webhook_url:form.get("webhook")||null})});document.querySelector("#kb-modal").close();event.target.reset();hydrate(); }
+  const payload={tenant_id:form.get("tenant_id"),slug:form.get("slug"),name:form.get("name"),database_mode:form.get("database_mode"),embedding_mode:form.get("embedding_mode"),enrichment_mode:form.get("enrichment_mode"),s3:{url:form.get("s3_url"),credentials:{access_key_id:form.get("s3_key"),secret_access_key:form.get("s3_secret")}},webhook_url:form.get("webhook")||null};
+  if(payload.database_mode==="custom")payload.database={url:form.get("db_url"),credentials:{username:form.get("db_user"),password:form.get("db_password")},vector_dimensions:384};
+  if(payload.embedding_mode==="custom")payload.embedding=split(form.get("embedding"));
+  if(payload.enrichment_mode==="custom")payload.enrichment=split(form.get("llm"));
+  try { await api("/knowledge-bases",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});document.querySelector("#kb-modal").close();event.target.reset();syncKbModes();hydrate(); }
   catch(error) { document.querySelector("#kb-error").textContent=error.message; }
 };
 document.querySelector("#smtp-form").onsubmit=async event=>{

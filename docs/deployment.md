@@ -9,6 +9,10 @@
 | worker | Consome jobs de ingestão por polling |
 | admin-ui | Nginx com console estático |
 
+Quando o embedding default é local, o modelo é baixado na primeira utilização e
+fica em volume Docker persistente. Em ambiente sem acesso ao Hugging Face,
+configure DEFAULT_EMBEDDING_PROVIDER=openai_compatible e um endpoint interno.
+
 O compose do control plane pressupõe uma rede Docker externa chamada traefik-net para exposição HTTPS por Traefik. Adapte labels e ADMIN_ORIGIN ao seu domínio.
 
 ## Variáveis obrigatórias

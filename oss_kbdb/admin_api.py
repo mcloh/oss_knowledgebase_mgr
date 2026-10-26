@@ -10,7 +10,6 @@ import smtplib
 import time
 from email.message import EmailMessage
 from typing import Literal
-from urllib.parse import quote, urlsplit, urlunsplit
 
 import jwt
 from argon2 import PasswordHasher
@@ -23,9 +22,10 @@ from pydantic import BaseModel, Field
 from oss_kbdb.adapters.embeddings import LocalEmbedder, OpenAICompatibleEmbedder
 from oss_kbdb.adapters.postgres import PostgresRepository
 from oss_kbdb.config import Settings
+from oss_kbdb.kb_defaults import database_url, default_chunk_config, default_database, default_embedding, default_enrichment
 from oss_kbdb.provisioning import provision_kb_database
 
-app = FastAPI(title="OSS-KBDB Control Plane", version="0.1.0")
+app = FastAPI(title="OSS-KBDB Control Plane", version="0.1.1")
 bearer = HTTPBearer()
 ph = PasswordHasher()
 app.add_middleware(
@@ -67,24 +67,6 @@ def require_admin(me: dict) -> None:
 
 def decrypt(value: bytes) -> dict:
     return json.loads(crypto().decrypt(value).decode())
-
-
-def database_url(config: dict) -> str:
-    """Completa uma URL sem credencial, sem registrar nem persistir a URL resultante."""
-    url = config["url"]
-    credentials = config.get("credentials", {})
-    if not credentials.get("username") or not credentials.get("password"):
-        return url
-    parsed = urlsplit(url)
-    if parsed.username is not None:
-        return url
-    host = parsed.hostname or ""
-    if not host:
-        raise ValueError("URL PostgreSQL inválida")
-    netloc = f"{quote(credentials['username'], safe='')}:{quote(credentials['password'], safe='')}@{host}"
-    if parsed.port:
-        netloc += f":{parsed.port}"
-    return urlunsplit((parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment))
 
 
 class Login(BaseModel):
@@ -131,11 +113,14 @@ class KBCreate(BaseModel):
     tenant_id: str | None = None
     slug: str
     name: str
-    database: DatabaseConfig
+    database_mode: Literal["default", "custom"] = "default"
+    embedding_mode: Literal["default", "custom"] = "default"
+    enrichment_mode: Literal["default", "custom"] = "default"
+    database: DatabaseConfig | None = None
     s3: Provider
-    embedding: Provider
-    enrichment: Provider
-    chunk_config: dict = Field(default_factory=dict)
+    embedding: Provider | None = None
+    enrichment: Provider | None = None
+    chunk_config: dict | None = None
     webhook_url: str | None = None
     webhook_secret: str | None = None
 
@@ -345,22 +330,39 @@ def create_kb(body: KBCreate, me: dict = Depends(actor)):
         tenant = r._conn.execute("SELECT id FROM tenants WHERE id=%s AND active=true", (tenant_id,)).fetchone()
         if not tenant:
             raise HTTPException(404, "tenant não encontrado")
+        try:
+            database = default_database() if body.database_mode == "default" else body.database
+            embedding = default_embedding() if body.embedding_mode == "default" else body.embedding
+            enrichment = default_enrichment() if body.enrichment_mode == "default" else body.enrichment
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        if not database or not embedding or not enrichment:
+            raise HTTPException(422, "configuração custom exige os dados do componente selecionado")
         safe_slug = re.sub("[^a-z0-9_]+", "_", body.slug.lower()).strip("_")[:32]
         if not safe_slug:
             raise HTTPException(422, "slug inválido")
-        body.database.schema_name = f"kb_{str(tenant_id).replace('-', '')[:12]}_{safe_slug}"
+        schema_name = f"kb_{str(tenant_id).replace('-', '')[:12]}_{safe_slug}"
+        if isinstance(database, dict):
+            database["schema_name"] = schema_name
+        else:
+            database.schema_name = schema_name
+        database_payload = database if isinstance(database, dict) else database.model_dump()
+        embedding_payload = embedding if isinstance(embedding, dict) else embedding.model_dump()
+        enrichment_payload = enrichment if isinstance(enrichment, dict) else enrichment.model_dump()
+        chunks = default_chunk_config() | (body.chunk_config or {})
         f = crypto()
         row = r._conn.execute(
             """INSERT INTO knowledge_bases(tenant_id,slug,name,database_config_ciphertext,s3_config_ciphertext,
                embedding_config_ciphertext,enrichment_config_ciphertext,chunk_config,webhook_url,webhook_secret_ciphertext)
                VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
-            (tenant_id, body.slug, body.name, f.encrypt(body.database.model_dump_json().encode()),
-             f.encrypt(body.s3.model_dump_json().encode()), f.encrypt(body.embedding.model_dump_json().encode()),
-             f.encrypt(body.enrichment.model_dump_json().encode()), json.dumps(body.chunk_config), body.webhook_url,
+            (tenant_id, body.slug, body.name, f.encrypt(json.dumps(database_payload).encode()),
+             f.encrypt(body.s3.model_dump_json().encode()), f.encrypt(json.dumps(embedding_payload).encode()),
+             f.encrypt(json.dumps(enrichment_payload).encode()), json.dumps(chunks), body.webhook_url,
              f.encrypt(body.webhook_secret.encode()) if body.webhook_secret else None),
         ).fetchone()
         r._conn.commit()
-        return {"id": str(row[0]), "slug": body.slug, "schema": body.database.schema_name, "database": "configured"}
+        return {"id": str(row[0]), "slug": body.slug, "schema": database_payload["schema_name"],
+                "configuration": {"database": body.database_mode, "embedding": body.embedding_mode, "enrichment": body.enrichment_mode}}
     finally:
         r.close()
 

@@ -12,7 +12,13 @@ O tenant-admin enxerga somente o próprio tenant. Ao criar uma KB, o tenant é e
 
 ## Criar uma base
 
-Informe os dados operacionais da base:
+No perfil **Padrão da plataforma**, informe somente o object storage: endpoint S3,
+access key e secret. PostgreSQL, modelo de embedding e enrichment são selecionados
+pela plataforma e seus detalhes não são exibidos.
+
+Em **Configurações avançadas**, cada componente pode ser mudado, de maneira
+independente, para **Customizado**. Nesse caso, informe os dados operacionais
+somente do componente que deseja substituir:
 
 - PostgreSQL/pgvector do data plane;
 - origem S3 e credenciais com acesso somente-leitura ao bucket/prefixo necessário;

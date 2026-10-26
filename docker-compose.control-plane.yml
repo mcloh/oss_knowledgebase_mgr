@@ -17,12 +17,19 @@ services:
       DATABASE_URL: postgresql://${CONTROL_DB_USER}:${CONTROL_DB_PASSWORD}@control-db:5432/${CONTROL_DB_NAME}
       CONTROL_PLANE_JWT_SECRET: ${CONTROL_PLANE_JWT_SECRET}
       CONTROL_PLANE_FERNET_KEY: ${CONTROL_PLANE_FERNET_KEY}
+      DEFAULT_KB_DATABASE_URL: postgresql://${CONTROL_DB_USER}:${CONTROL_DB_PASSWORD}@control-db:5432/${CONTROL_DB_NAME}
+      DEFAULT_EMBEDDING_PROVIDER: ${DEFAULT_EMBEDDING_PROVIDER:-local}
+      DEFAULT_EMBEDDING_MODEL: ${DEFAULT_EMBEDDING_MODEL:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
+      DEFAULT_EMBEDDING_DIMENSIONS: ${DEFAULT_EMBEDDING_DIMENSIONS:-384}
+      DEFAULT_ENRICHMENT_PROVIDER: ${DEFAULT_ENRICHMENT_PROVIDER:-deterministic}
+      DEFAULT_ENRICHMENT_MODEL: ${DEFAULT_ENRICHMENT_MODEL:-deterministic-v1}
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT}
       SMTP_USER: ${SMTP_USER}
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       SMTP_FROM: ${SMTP_FROM}
     depends_on: [control-db]
+    volumes: [oss_kbdb_model_cache:/root/.cache/huggingface]
     networks: [internal,traefik-net]
     labels:
       - traefik.enable=true
@@ -40,10 +47,18 @@ services:
       DATABASE_URL: postgresql://${CONTROL_DB_USER}:${CONTROL_DB_PASSWORD}@control-db:5432/${CONTROL_DB_NAME}
       CONTROL_PLANE_JWT_SECRET: ${CONTROL_PLANE_JWT_SECRET}
       CONTROL_PLANE_FERNET_KEY: ${CONTROL_PLANE_FERNET_KEY}
+      DEFAULT_KB_DATABASE_URL: postgresql://${CONTROL_DB_USER}:${CONTROL_DB_PASSWORD}@control-db:5432/${CONTROL_DB_NAME}
+      DEFAULT_EMBEDDING_PROVIDER: ${DEFAULT_EMBEDDING_PROVIDER:-local}
+      DEFAULT_EMBEDDING_MODEL: ${DEFAULT_EMBEDDING_MODEL:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
+      DEFAULT_EMBEDDING_DIMENSIONS: ${DEFAULT_EMBEDDING_DIMENSIONS:-384}
+      DEFAULT_ENRICHMENT_PROVIDER: ${DEFAULT_ENRICHMENT_PROVIDER:-deterministic}
+      DEFAULT_ENRICHMENT_MODEL: ${DEFAULT_ENRICHMENT_MODEL:-deterministic-v1}
     depends_on: [control-db]
+    volumes: [oss_kbdb_model_cache:/root/.cache/huggingface]
     networks: [internal]
 networks:
   internal: {}
   traefik-net: {external: true}
 volumes:
   oss_kbdb_control_db: {}
+  oss_kbdb_model_cache: {}
