@@ -1,0 +1,16 @@
+services:
+  admin:
+    build: .
+    image: oss-kbdb-admin:0.1.0
+    restart: unless-stopped
+    networks: [traefik-net]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik-net
+      - traefik.http.routers.oss-kbdb-admin.rule=Host(`osskbdb.xptoai.com.br`)
+      - traefik.http.routers.oss-kbdb-admin.entrypoints=websecure
+      - traefik.http.routers.oss-kbdb-admin.tls.certresolver=le
+      - traefik.http.services.oss-kbdb-admin.loadbalancer.server.port=80
+networks:
+  traefik-net:
+    external: true

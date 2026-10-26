@@ -1,0 +1,49 @@
+services:
+  control-db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${CONTROL_DB_NAME}
+      POSTGRES_USER: ${CONTROL_DB_USER}
+      POSTGRES_PASSWORD: ${CONTROL_DB_PASSWORD}
+    volumes:
+      - oss_kbdb_control_db:/var/lib/postgresql/data
+      - ./sql/002_admin_multitenant.sql:/docker-entrypoint-initdb.d/002_admin_multitenant.sql:ro
+    networks: [internal]
+  api:
+    build: {context: ., dockerfile: Dockerfile.control-plane}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${CONTROL_DB_USER}:${CONTROL_DB_PASSWORD}@control-db:5432/${CONTROL_DB_NAME}
+      CONTROL_PLANE_JWT_SECRET: ${CONTROL_PLANE_JWT_SECRET}
+      CONTROL_PLANE_FERNET_KEY: ${CONTROL_PLANE_FERNET_KEY}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_FROM: ${SMTP_FROM}
+    depends_on: [control-db]
+    networks: [internal,traefik-net]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik-net
+      - traefik.http.routers.oss-kbdb-api.rule=Host(`api.osskbdb.xptoai.com.br`)
+      - traefik.http.routers.oss-kbdb-api.priority=100
+      - traefik.http.routers.oss-kbdb-api.entrypoints=websecure
+      - traefik.http.routers.oss-kbdb-api.tls.certresolver=le
+      - traefik.http.services.oss-kbdb-api.loadbalancer.server.port=8000
+  worker:
+    build: {context: ., dockerfile: Dockerfile.control-plane}
+    restart: unless-stopped
+    command: ["python","-c","from oss_kbdb.control_worker import run_once; import time; exec('while True:\\n run_once(); time.sleep(2)')"]
+    environment:
+      DATABASE_URL: postgresql://${CONTROL_DB_USER}:${CONTROL_DB_PASSWORD}@control-db:5432/${CONTROL_DB_NAME}
+      CONTROL_PLANE_JWT_SECRET: ${CONTROL_PLANE_JWT_SECRET}
+      CONTROL_PLANE_FERNET_KEY: ${CONTROL_PLANE_FERNET_KEY}
+    depends_on: [control-db]
+    networks: [internal]
+networks:
+  internal: {}
+  traefik-net: {external: true}
+volumes:
+  oss_kbdb_control_db: {}

@@ -1,0 +1,11 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+dist/
+!admin-ui/dist/
+!admin-ui/dist/**
+admin-ui/.git/
+admin-ui/.openai/
+*.egg-info/
