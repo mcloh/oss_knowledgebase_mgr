@@ -151,4 +151,6 @@ node --check admin-ui/dist/app.js
 
 ## Licença
 
-Defina a licença antes de distribuir ou aceitar contribuições externas.
+Este projeto é licenciado sob [Creative Commons Atribuição 3.0 Brasil (CC BY
+3.0 BR)](https://creativecommons.org/licenses/by/3.0/br/). Consulte
+[LICENSE](LICENSE) para a declaração aplicável e o texto legal canônico.
